@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+CWD="$(pwd)"
+OPENCODE_CONTAINER_RUNTIME=${OPENCODE_CONTAINER_RUNTIME:-podman}
+OPENCODE_CONTAINER_NAME=${OPENCODE_CONTAINER_NAME:-"opencode-container"}
+OPENCODE_CONTAINER_TAG=${OPENCODE_CONTAINER_TAG:-latest}
+
+# Check if CWD is under /home/ and at least 3 levels deep (e.g. /home/user/project/subdir)
+is_valid_path() {
+    local path="$1"
+    # Must start with /home/
+    [[ "$path" == /home/* ]] || return 1
+    # Strip /home/ prefix and count remaining components
+    local relative="${path#/home/}"
+    # Count slashes to determine depth (need at least 2 more levels after /home/)
+    local depth
+    depth=$(echo "$relative" | tr -cd '/' | wc -c)
+    [[ "$depth" -ge 2 ]] || return 1
+}
+
+if is_valid_path "$CWD"; then
+    CONTAINER_WORKDIR="/app${CWD}"
+else
+    # Construct a fallback path at least 3 levels deep under /home/
+    USER_NAME="${USER:-opencode}"
+    PROJECT_NAME="$(basename "$CWD")"
+    TIMESTAMP="$(date '+%Y_%m_%d-%H%M%S')"
+    FALLBACK="/home/${USER_NAME}/Projects/${PROJECT_NAME}/scratch/opencode-${TIMESTAMP}"
+    CONTAINER_WORKDIR="/app${FALLBACK}"
+    CWD="${FALLBACK}"
+
+    echo ""
+    echo -e "\033[31mNot in a safe project directory.\033[0m"
+    echo "Starting OpenCode in a fallback temp directory: ${FALLBACK}"
+    mkdir -p "${FALLBACK}"
+    echo -n "Loading"
+    for _ in $(seq 1 50); do
+        echo -n "."
+        sleep 0.06
+    done
+    echo ""
+fi
+
+exec $OPENCODE_CONTAINER_RUNTIME run --rm -it \
+    --user "$(id -u):$(id -g)" \
+    --userns keep-id:uid=1000,gid=1000 \
+    -v "$HOME/.config/opencode:/home/node/.config/opencode" \
+    -v "$HOME/.cache/opencode:/home/node/.cache/opencode" \
+    -v "$HOME/.local/share/opencode:/home/node/.local/share/opencode" \
+    -v "$HOME/.local/state/opencode:/home/node/.local/state/opencode" \
+    -v "${CWD}:${CONTAINER_WORKDIR}" \
+    -w "${CONTAINER_WORKDIR}" \
+    -p 127.0.0.1:4040:4040 \
+    --security-opt=no-new-privileges \
+    --cap-drop all \
+    "${OPENCODE_CONTAINER_NAME}:${OPENCODE_CONTAINER_TAG}" --port 4040 --hostname 0.0.0.0 "$@"
