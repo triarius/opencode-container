@@ -46,10 +46,10 @@ fi
 exec $OPENCODE_CONTAINER_RUNTIME run --rm -it \
     --user "$(id -u):$(id -g)" \
     --userns keep-id:uid=1000,gid=1000 \
-    -v "$HOME/.config/opencode:/home/node/.config/opencode" \
-    -v "$HOME/.cache/opencode:/home/node/.cache/opencode" \
-    -v "$HOME/.local/share/opencode:/home/node/.local/share/opencode" \
-    -v "$HOME/.local/state/opencode:/home/node/.local/state/opencode" \
+    -v "$HOME/.config/opencode:/home/opencode/.config/opencode" \
+    -v "$HOME/.cache/opencode:/home/opencode/.cache/opencode" \
+    -v "$HOME/.local/share/opencode:/home/opencode/.local/share/opencode" \
+    -v "$HOME/.local/state/opencode:/home/opencode/.local/state/opencode" \
     -v "${CWD}:${CONTAINER_WORKDIR}" \
     -w "${CONTAINER_WORKDIR}" \
     -p 127.0.0.1:4040:4040 \
